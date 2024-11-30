@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Dashboard</h1>
+      <div id="services-container"></div>
+    </div>
+
+    <script>
+      const checkServiceStatus = async (service) => {
+        try {
+          const response = await fetch(service.url, {
+            method: "HEAD",
+            mode: "no-cors",
+          });
+          return "up";
+        } catch (error) {
+          console.error(`Error checking status for ${service.url}:`, error);
+          return "down";
+        }
+      };
+
+      const toggleSectionVisibility = (sectionElement) => {
+        const servicesDiv = sectionElement.querySelector(".services");
+        servicesDiv.classList.toggle("hide");
+      };
+
+      const createServiceElement = (service) => {
+        const serviceElement = document.createElement("div");
+        serviceElement.className = "service";
+        serviceElement.onclick = () => {
+          window.open(service.url, "_blank");
+        };
+
+        serviceElement.innerHTML = `
+          <span class="status-circle pending"></span>
+          <span>${service.name}</span>
+          <img src="${
+            new URL("/favicon.ico", service.url).href
+          }" class="favicon" alt="${
+          service.name
+        } favicon" onerror="this.style.display='none'">
+        `;
+
+        serviceElement.dataset.url = service.url;
+        return serviceElement;
+      };
+
+      const renderServices = (services) => {
+        const servicesContainer = document.getElementById("services-container");
+        servicesContainer.innerHTML = "";
+
+        for (const [sectionName, sectionData] of Object.entries(services)) {
+          const sectionElement = document.createElement("div");
+          sectionElement.className = "section";
+
+          const sectionTitle = document.createElement("h2");
+          sectionTitle.textContent = sectionName;
+          sectionTitle.onclick = () => toggleSectionVisibility(sectionElement);
+          sectionElement.appendChild(sectionTitle);
+
+          const servicesDiv = document.createElement("div");
+          servicesDiv.className = "services";
+          if (!sectionData.showByDefault) {
+            servicesDiv.classList.add("hide");
+          }
+          sectionElement.appendChild(servicesDiv);
+
+          for (const service of sectionData.urls) {
+            const serviceElement = createServiceElement(service);
+            servicesDiv.appendChild(serviceElement);
+          }
+
+          servicesContainer.appendChild(sectionElement);
+        }
+      };
+
+      const updateServiceStatuses = async () => {
+        const serviceElements = document.querySelectorAll(".service");
+
+        for (const serviceElement of serviceElements) {
+          const url = serviceElement.dataset.url;
+          const status = await checkServiceStatus({ url });
+          const statusCircle = serviceElement.querySelector(".status-circle");
+          statusCircle.className = `status-circle ${status}`;
+        }
+      };
+
+      const loadServices = async () => {
+        try {
+          const response = await fetch("services.json");
+          const services = await response.json();
+          renderServices(services);
+          updateServiceStatuses();
+          setInterval(updateServiceStatuses, 600_000); // Update every 10 minutes
+        } catch (error) {
+          console.error("Failed to load services:", error);
+        }
+      };
+
+      loadServices();
+    </script>
+  </body>
+</html>
